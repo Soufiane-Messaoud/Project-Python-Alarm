@@ -1,0 +1,240 @@
+
+import tkinter as tk
+from tkinter import ttk, messagebox
+from datetime import datetime, timedelta
+import pygame
+import threading
+from ttkthemes import ThemedTk
+
+
+
+class ApplicationHorloge:
+    def __init__(self, racine):
+        self.racine = racine
+        self.racine.title("Mon Gestionnaire de Temps")
+        self.racine.geometry('800x600')
+
+        self.heure_reveil = tk.StringVar()
+        self.heure_reveil.set("00:00")
+        self.heure_actuelle = tk.StringVar()
+        self.heure_actuelle.set(datetime.now().strftime('%H:%M:%S'))
+        self.reveil_actif = False
+
+        self.options_sonnerie = [
+            r"C:\Users\YLS\PycharmProjects\python_s1\python_project\sonneries\day.mp3",
+            r"C:\Users\YLS\PycharmProjects\python_s1\python_project\sonneries\low.mp3",
+            r"C:\Users\YLS\PycharmProjects\python_s1\python_project\sonneries\CucaRafa- Alarme.wav",
+        ]
+        self.sonnerie_selectionnee = tk.StringVar()
+        self.sonnerie_selectionnee.set(self.options_sonnerie[0])
+
+        self.duree_minuteur = tk.StringVar()
+        self.duree_minuteur.set("00:00")
+
+        self.minuteur_actif = False
+
+        self.chrono_actif = False
+        self.chrono_var_temps = tk.StringVar()
+        self.chrono_var_temps.set("00:00:00")
+
+        self.cadre_reveil = None
+        self.cadre_chrono = None
+        self.cadre_minuteur = None
+
+        pygame.init()
+
+        self.creer_interface()
+
+    def creer_interface(self):
+        style = ttk.Style()
+        style.configure('TButton', font=('calibri', 12, 'bold'), foreground='#A79BA3', background='#A79BA3')
+
+        self.racine.option_add('*TButton*highlightBackground', 'lightgray')
+        self.racine.option_add('*TButton*highlightColor', 'lightgray')
+        self.racine.configure(background='#F2DBEA')
+        couleur_texte = '#91838C'
+        ttk.Label(self.racine, text="Bienvenue dans votre gestionnaire de temps", foreground=couleur_texte,font=('calibri', 16, 'bold')).pack(pady=20)
+        ttk.Label(self.racine, text="Choisissez une fonctionnalité", foreground=couleur_texte,font=('calibri', 14, 'bold')).pack(pady=20)
+        ttk.Button(self.racine, text="Réveil",command=self.afficher_reveil,style='TButton').pack(pady=10)
+        ttk.Button(self.racine, text="Minuteur", command=self.afficher_minuteur,style='TButton').pack(pady=10)
+        ttk.Button(self.racine, text="Chronomètre", command=self.afficher_chronometre,style='TButton').pack(pady=10)
+        ttk.Label(self.racine, textvariable=self.heure_actuelle, font=('calibri', 12, 'italic')).pack(pady=10)
+
+        self.mise_a_jour_heure_periodique()
+
+    def afficher_reveil(self):
+        self.cacher_cadres()
+        self.creer_cadre_reveil()
+
+    def afficher_minuteur(self):
+        self.cacher_cadres()
+        self.creer_cadre_minuteur()
+
+    def afficher_chronometre(self):
+        self.cacher_cadres()
+        self.creer_cadre_chrono()
+
+    def cacher_cadres(self):
+        if self.cadre_reveil:
+            self.cadre_reveil.destroy()
+            self.cadre_reveil = None
+        if self.cadre_minuteur:
+            self.cadre_minuteur.destroy()
+            self.cadre_minuteur = None
+        if self.cadre_chrono:
+            self.cadre_chrono.destroy()
+            self.cadre_chrono = None
+
+    def creer_cadre_reveil(self):
+        if self.cadre_reveil is None:
+            self.cadre_reveil = ttk.Frame(self.racine, padding=10)
+            self.cadre_reveil.place(relx=0.5, rely=0.79, anchor="center")
+            couleur_texte = '#91838C'
+            ttk.Label(self.cadre_reveil, text="Réveil", foreground=couleur_texte,font=('calibri', 14, 'bold')).grid(row=0, column=0,columnspan=2, pady=5)
+            ttk.Label(self.cadre_reveil, text="Heure du réveil (HH:MM):").grid(row=1, column=0, pady=5, sticky='e')
+            ttk.Entry(self.cadre_reveil, textvariable=self.heure_reveil, font=('calibri', 14, 'bold')).grid(row=1,column=1,pady=5,sticky='w')
+
+            ttk.Label(self.cadre_reveil, text="Sonnerie:").grid(row=2, column=0, pady=5, sticky='e')
+            menu_sonnerie = ttk.Combobox(self.cadre_reveil, textvariable=self.sonnerie_selectionnee,values=self.options_sonnerie)
+            menu_sonnerie.grid(row=2, column=1, pady=5, sticky='w')
+
+            ttk.Button(self.cadre_reveil, text="Démarrer Réveil", command=self.demarrer_reveil).grid(row=3, column=0,pady=10, padx=5,sticky='e')
+            ttk.Button(self.cadre_reveil, text="Arrêter Réveil", command=self.arreter_reveil).grid(row=3, column=1,pady=10, padx=5,sticky='w')
+
+            ttk.Button(self.cadre_reveil, text="Lancer Sonnerie", command=self.lancer_sonnerie).grid(row=5, column=0,pady=10, padx=5,sticky='e')
+            ttk.Button(self.cadre_reveil, text="Arrêter Sonnerie", command=self.arreter_sonnerie).grid(row=5, column=1,pady=10, padx=5,sticky='w')
+
+    def creer_cadre_chrono(self):
+        if self.cadre_chrono is None:
+            self.cadre_chrono = ttk.Frame(self.racine, padding=10)
+            self.cadre_chrono.place(relx=0.5, rely=0.79, anchor="center")
+            couleur_texte = '#91838C'
+            ttk.Label(self.cadre_chrono, text="Chronomètre",foreground = couleur_texte, font=('calibri', 14, 'bold')).grid(row=0, column=0,columnspan=2, pady=5)
+
+            ttk.Label(self.cadre_chrono, text="Chronomètre:").grid(row=1, column=0, pady=5, sticky='e')
+            ttk.Label(self.cadre_chrono, textvariable=self.chrono_var_temps, font=('calibri', 14, 'bold')).grid(row=1,column=1,pady=5,sticky='w')
+
+            ttk.Button(self.cadre_chrono, text="Démarrer Chrono", command=self.demarrer_chrono).grid(row=2, column=0,pady=10, padx=5,sticky='e')
+            ttk.Button(self.cadre_chrono, text="Arrêter Chrono", command=self.arreter_chrono).grid(row=2, column=1,pady=10, padx=5,sticky='w')
+
+            ttk.Label(self.cadre_chrono, text="Heure actuelle:").grid(row=3, column=0, pady=5, sticky='e')
+            ttk.Label(self.cadre_chrono, textvariable=self.heure_actuelle, font=('calibri', 12, 'italic')).grid(row=3,column=1,pady=5,sticky='w')
+
+    def creer_cadre_minuteur(self):
+        if self.cadre_minuteur is None:
+            self.cadre_minuteur = ttk.Frame(self.racine, padding=10)
+            self.cadre_minuteur.place(relx=0.5, rely=0.79, anchor="center")
+            couleur_texte = '#91838C'
+            ttk.Label(self.cadre_minuteur, text="Minuteur", foreground = couleur_texte,font=('calibri', 14, 'bold')).grid(row=0, column=0,columnspan=2, pady=5)
+
+            ttk.Label(self.cadre_minuteur, text="Durée Minuteur (MM:SS):").grid(row=1, column=0, pady=5, sticky='e')
+            ttk.Entry(self.cadre_minuteur, textvariable=self.duree_minuteur, font=('calibri', 14, 'bold')).grid(row=1,column=1,pady=5,sticky='w')
+
+            ttk.Button(self.cadre_minuteur, text="Démarrer Minuteur", command=self.demarrer_minuteur).grid(row=2,column=0,pady=10,padx=5,sticky='e')
+            ttk.Button(self.cadre_minuteur, text="Arrêter Minuteur", command=self.arreter_minuteur).grid(row=2,column=1,pady=10,padx=5,sticky='w')
+
+            ttk.Label(self.cadre_minuteur, text="Heure actuelle:").grid(row=3, column=0, pady=5, sticky='e')
+            ttk.Label(self.cadre_minuteur, textvariable=self.heure_actuelle, font=('calibri', 12, 'italic')).grid(row=3,column=1,pady=5,sticky='w')
+
+    def mise_a_jour_heure_periodique(self):
+        heure_actuelle = datetime.now().strftime('%H:%M:%S')
+        self.heure_actuelle.set(heure_actuelle)
+        if self.reveil_actif and datetime.now().time() >= self.objet_heure_reveil.time():
+            self.lancer_sonnerie()
+            self.reveil_actif = False
+            self.arreter_reveil()
+        self.racine.after(1000, self.mise_a_jour_heure_periodique)
+
+    def demarrer_reveil(self):
+        heure_reveil_str = self.heure_reveil.get()
+
+        try:
+            self.objet_heure_reveil = datetime.strptime(heure_reveil_str, '%H:%M')
+            heure_actuelle = datetime.now().time()
+
+            if heure_actuelle < self.objet_heure_reveil.time():
+                messagebox.showinfo("Réveil", f"Réveil programmé à {heure_reveil_str}.")
+                self.reveil_actif = True
+                self.thread_reveil = threading.Thread(target=self.surveiller_reveil)
+                self.thread_reveil.start()
+            else:
+                messagebox.showwarning("Réveil", "L'heure du réveil doit être dans le futur.")
+
+        except ValueError:
+            messagebox.showerror("Erreur", "Format d'heure invalide. Utilisez HH:MM.")
+
+    def surveiller_reveil(self):
+        while self.reveil_actif:
+            if datetime.now().time() >= self.objet_heure_reveil.time():
+                self.lancer_sonnerie()
+                self.reveil_actif = False
+                self.arreter_reveil()
+
+    def arreter_reveil(self):
+        messagebox.showinfo("Réveil", "Réveil arrêté.")
+
+    def lancer_sonnerie(self):
+        sonnerie_selectionnee = self.sonnerie_selectionnee.get()
+        pygame.mixer.music.load(sonnerie_selectionnee)
+        pygame.mixer.music.play()
+
+    def arreter_sonnerie(self):
+        pygame.mixer.music.stop()
+
+    def demarrer_chrono(self):
+        if not self.chrono_actif:
+            self.chrono_heure_depart = datetime.now()
+            self.chrono_actif = True
+            self.mise_a_jour_chrono()
+
+    def arreter_chrono(self):
+        if self.chrono_actif:
+            self.chrono_actif = False
+
+    def mise_a_jour_chrono(self):
+        if self.chrono_actif:
+            temps_ecoule = datetime.now() - self.chrono_heure_depart
+            chrono_str = str(timedelta(seconds=int(temps_ecoule.total_seconds())))
+            self.chrono_var_temps.set(chrono_str)
+            self.racine.after(1000, self.mise_a_jour_chrono)
+        else:
+            self.chrono_var_temps.set("00:00:00")
+
+    def demarrer_minuteur(self):
+        if not self.minuteur_actif:
+            duree_minuteur_str = self.duree_minuteur.get()
+
+            try:
+                duree_minuteur = timedelta(minutes=int(duree_minuteur_str[:2]), seconds=int(duree_minuteur_str[3:]))
+                self.minuteur_heure_depart = datetime.now()
+                self.minuteur_heure_fin = self.minuteur_heure_depart + duree_minuteur
+                self.minuteur_actif = True
+                self.mise_a_jour_minuteur()
+
+            except ValueError:
+                messagebox.showerror("Erreur", "Format de minuteur invalide. Utilisez MM:SS.")
+
+    def arreter_minuteur(self):
+        if self.minuteur_actif:
+            self.minuteur_actif = False
+
+    def mise_a_jour_minuteur(self):
+        if self.minuteur_actif:
+            temps_restant = self.minuteur_heure_fin - datetime.now()
+            minuteur_str = str(temps_restant).split('.')[0]
+            self.duree_minuteur.set(minuteur_str)
+            if temps_restant.total_seconds() <= 0:
+                self.minuteur_actif = False
+                self.lancer_sonnerie()
+                messagebox.showinfo("Minuteur", "Minuteur terminé.")
+                self.duree_minuteur.set("00:00:00")
+            else:
+                self.racine.after(1000, self.mise_a_jour_minuteur)
+        else:
+            self.duree_minuteur.set("00:00:00")
+
+
+if __name__ == "__main__":
+    racine = ThemedTk(theme="arc")
+    application = ApplicationHorloge(racine)
+    racine.mainloop()
